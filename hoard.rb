@@ -13,7 +13,7 @@ include PathHelpers
 include UrlHelpers
 
 WORKERS = 4
-VERSION = `git log --oneline #{$0} | awk '{print $1}'`.chomp
+VERSION = `git log --oneline #{$0} | head -n 1 | awk '{print $1}'`.chomp
 
 abort "USERNAME must be set" unless ENV['USERNAME']
 
