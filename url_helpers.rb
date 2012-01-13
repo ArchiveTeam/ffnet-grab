@@ -1,9 +1,7 @@
-require 'logger'
+require File.expand_path('../constants', __FILE__)
 
 module UrlHelpers
   BASE_URL = "http://www.fanfiction.net"
-  LOG = Logger.new($stderr)
-
   U = lambda { |sid, rest| "#{BASE_URL}/s/#{sid}#{rest}" }
   R = lambda { |sid, rest| "#{BASE_URL}/r/#{sid}#{rest}" }
 
@@ -49,7 +47,7 @@ module UrlHelpers
       if highest_page > 1
         1.upto(highest_page).map do |n|
           R[sid, "/0/#{n}"]
-        end
+        end << R[sid, "/"]
       else
         [R[sid, '/']]
       end
