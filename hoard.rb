@@ -85,9 +85,4 @@ queue = GirlFriday::WorkQueue.new(:hoard, common_config) do |sid|
   end
 end
 
-queue << '7371891'
-queue << '5909536'
-queue << '4979400'
-queue << '7127587'
-
 loop { sleep 30 }
