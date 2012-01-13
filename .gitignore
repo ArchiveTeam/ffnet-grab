@@ -1,2 +1,5 @@
 *.sw?
 .rbx
+tmpfs
+data
+wget-warc
