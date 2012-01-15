@@ -1,0 +1,34 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    connection_pool (0.1.0)
+    domain_name (0.5.1)
+      unf (~> 0.0.3)
+    girl_friday (0.9.7)
+      connection_pool (~> 0.1.0)
+    mechanize (2.1)
+      domain_name (~> 0.5, >= 0.5.1)
+      net-http-digest_auth (~> 1.1, >= 1.1.1)
+      net-http-persistent (~> 2.3, >= 2.3.2)
+      nokogiri (~> 1.4)
+      ntlm-http (~> 0.1, >= 0.1.1)
+      webrobots (~> 0.0, >= 0.0.9)
+    net-http-digest_auth (1.2)
+    net-http-persistent (2.3.3)
+    nokogiri (1.5.0)
+    ntlm-http (0.1.1)
+    redis (2.2.2)
+    unf (0.0.4)
+      unf_ext
+    unf_ext (0.0.4)
+    webrobots (0.0.12)
+      nokogiri (>= 1.4.4)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  connection_pool
+  girl_friday
+  mechanize
+  redis

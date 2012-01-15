@@ -1,0 +1,6 @@
+source "http://rubygems.org"
+
+gem 'connection_pool'
+gem 'girl_friday'
+gem 'mechanize'
+gem 'redis'
