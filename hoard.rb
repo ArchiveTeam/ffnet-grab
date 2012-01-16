@@ -25,7 +25,7 @@ mp = ConnectionPool.new(:size => WORKERS) do
   end
 end
 
-download_queue = GirlFriday::WorkQueue.new(:hoard, :size => 2) do |sid, urls|
+download_queue = GirlFriday::WorkQueue.new(:download_stories, :size => 2) do |sid, urls|
   story_and_reviews = urls[:story] + urls[:reviews]
 
   userdir = story_dir_for(sid)
@@ -35,7 +35,7 @@ download_queue = GirlFriday::WorkQueue.new(:hoard, :size => 2) do |sid, urls|
 
   cmd = [
     WGET_WARC,
-    "-U" + E[USER_AGENT],
+    "-U " + E[USER_AGENT],
     "-e robots=off",
     "-nv",
     "-o " + E[log_file],
@@ -71,13 +71,39 @@ download_queue = GirlFriday::WorkQueue.new(:hoard, :size => 2) do |sid, urls|
 
   `#{cmd}`
 
-  LOG.info "Finished #{sid}"
+  rp.with_connection do |redis|
+    redis.zrem STORES[:stories_working], sid
+    redis.sadd STORES[:stories_done], sid
+  end
+
+  LOG.info "Finished #{sid}."
 end
 
-discovery_queue = GirlFriday::WorkQueue.new(:discover, :size => 4) do |sid|
+discovery_queue = GirlFriday::WorkQueue.new(:discover_urls, :size => 4) do |sid|
   urls = mp.with_connection { |agent| urls_for(sid, agent) }
 
   download_queue << [sid, urls]
+
+  profile_urls = urls[:profile]
+
+  rp.with_connection do |redis|
+    profile_urls.each do |url|
+      redis.multi do
+        unless redis.sismember STORES[:profiles_done], url
+          redis.sadd STORES[:profiles_todo], url
+        end
+      end
+    end
+  end
+end
+
+LOG.info "Populating todo queue."
+
+rp.with_connection do |redis|
+  rp.sdiffstore STORES[:stories_todo], STORES[:stories_known], STORES[:stories_done]
+
+  size = rp.scard STORES[:stories_todo]
+  LOG.info "Todo queue populated with #{size} story IDs."
 end
 
 loop { sleep 30 }

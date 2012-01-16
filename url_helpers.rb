@@ -60,6 +60,6 @@ module UrlHelpers
   def profile_urls_in(page)
     profile_link = page.links.map(&:href).detect { |h| h =~ %r{/u/\d+} }
 
-    [profile_link]
+    [BASE_URL + profile_link]
   end
 end
