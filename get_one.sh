@@ -7,9 +7,13 @@ DIR=$MYDIR/$2
 DOWNLOADED_BY=$3
 CACHE=$MYDIR/cache/$USERID
 WGET_WARC=$MYDIR/wget-warc
+WARC2WARC=$MYDIR/warc2warc.py
 
 mkdir -p $CACHE
 
+# Note: the warc2warc bit decompresses improperly compressed CSS from
+# b.fanfiction.net.  warc2warc -D also removes chunking, which isn't strictly
+# necessary, but doesn't seem to be that harmful.
 set -x
 cd $CACHE && \
 $WGET_WARC \
@@ -28,6 +32,7 @@ $WGET_WARC \
 	--page-requisites \
 	--span-hosts \
 	-i "$DIR/$USERID.txt" && \
-cd - && rm -rf $CACHE
+cd - && rm -rf $CACHE && \
+$WARC2WARC -Z -D $DIR/$USERID.warc.gz > $DIR/$USERID.cooked.warc.gz
 
 set +x
