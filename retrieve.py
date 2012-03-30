@@ -80,8 +80,12 @@ def urls_for(profile):
             paths.append('/s/' + key + '/' + str(i + 1) + result.group(1))
 
         if key in reviews:
+            # The story links to /r/\d+/, which is technically the same thing as
+            # /r/\d+/0/1/, but we'll include the root anyway for e.g. wayback.
+            paths.append('/r/' + key + '/')
+
             for i in range(reviews[key]):
-                paths.append('/r/' + key + '/0/' + str(i + 1))
+                paths.append('/r/' + key + '/0/' + str(i + 1) + '/')
 
     return ["http://www.fanfiction.net%s" % path for path in paths]
 
