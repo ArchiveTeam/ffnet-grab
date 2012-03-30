@@ -9,7 +9,7 @@ import string
 import subprocess
 import sys
 
-VERSION = '20120330.01'
+VERSION = '20120330.02'
 
 def urls_for(profile):
     """
