@@ -9,6 +9,8 @@ import string
 import subprocess
 import sys
 
+VERSION = '20120330.01'
+
 def urls_for(profile):
     """
     1. Find the stories written by the profile's author.
@@ -132,5 +134,18 @@ if response.status == 200:
 
     print '- Retrieving %s.' % profile
     subprocess.check_call('./get_one.sh %s %s %s' % (profile_id, directory, username), shell=True)
+
+    print '- Telling tracker that %s is done.' % profile
+    bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
+    data = '{"downloader":"%s","item":"%s","bytes":{"all":%d},"version":"%s"}' % (username, profile, bytes, VERSION)
+    conn.request("POST", "/done", data)
+    response = conn.getresponse()
+
+    print '  - %s' % data
+    if response.status == 200:
+        print '- Tracker acknowledged %s.' % profile
+    else:
+        print '- Tracker error (status: %d).' % response.status
+        sys.exit(1)
 
 # vim:ts=4:sw=4:et
