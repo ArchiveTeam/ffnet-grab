@@ -103,7 +103,7 @@ conn = httplib.HTTPConnection(tracker)
 # Get a profile.
 # 
 # POST /request => [200, item] | [404, nothing]
-print "Requesting work item."
+print "- Requesting work item."
 conn.request("POST", "/request", '{"downloader":"%s"}' % username)
 response = conn.getresponse()
 
