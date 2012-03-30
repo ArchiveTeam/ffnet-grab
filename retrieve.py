@@ -133,7 +133,7 @@ if response.status == 200:
             url_file.write(url + '\n')
 
     print '- Retrieving %s.' % profile
-    subprocess.check_call('./get_one.sh %s %s %s' % (profile_id, directory, username), shell=True)
+    subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
 
     print '- Telling tracker that %s is done.' % profile
     bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
