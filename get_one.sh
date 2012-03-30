@@ -15,7 +15,7 @@ mkdir -p $CACHE
 # Note: the warc2warc bit decompresses improperly compressed CSS from
 # b.fanfiction.net.  warc2warc -D also removes chunking, which isn't strictly
 # necessary, but doesn't seem to be that harmful.
-set -x
+set -xe
 cd $CACHE && \
 $WGET_WARC \
 	-U "$USER_AGENT" \
@@ -36,4 +36,4 @@ $WGET_WARC \
 cd - && rm -rf $CACHE && \
 $WARC2WARC -Z -D $DIR/$USERID.warc.gz > $DIR/$USERID.cooked.warc.gz
 
-set +x
+set +xe
