@@ -101,8 +101,14 @@ if len(sys.argv) < 2:
 username = sys.argv[1]
 tracker = "fujoshi.at.ninjawedding.org"
 conn = httplib.HTTPConnection(tracker)
+stop_threshold = time.time()
 
 while True:
+    # Should we shut down?
+    if os.path.isfile('STOP') and os.stat('STOP').st_mtime > stop_threshold:
+        print "- STOP detected; terminating."
+        sys.exit()
+
     # Get a profile.
     # 
     # POST /request => [200, item] | [404, nothing] | [420, nothing]
@@ -113,7 +119,7 @@ while True:
 
     if response.status == 404:
         print "  - Tracker returned 404; assuming todo queue is empty.  Exiting."
-        sys.exit
+        sys.exit()
 
     if response.status == 420:
         print "  - Tracker is rate-limiting requests; will retry in 30 seconds."
