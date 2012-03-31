@@ -8,8 +8,9 @@ import re
 import string
 import subprocess
 import sys
+import time
 
-VERSION = '20120330.02'
+VERSION = '20120331.01'
 
 def urls_for(profile):
     """
@@ -100,52 +101,70 @@ if len(sys.argv) < 2:
 username = sys.argv[1]
 tracker = "fujoshi.at.ninjawedding.org"
 conn = httplib.HTTPConnection(tracker)
-# Get a profile.
-# 
-# POST /request => [200, item] | [404, nothing]
-print "- Requesting work item."
-conn.request("POST", "/request", '{"downloader":"%s"}' % username)
-response = conn.getresponse()
 
-if response.status == 404:
-    print "Tracker returned 404; assuming todo queue is empty.  Exiting."
-    sys.exit
-
-# If we got a profile, fetch it.
-if response.status == 200:
-    profile = response.read()
-    print "- Received profile %s." % profile
-    print "- Generating URLs for profile %s." % profile
-    urls = urls_for(profile)
-    print "  - %d URLs to fetch." % len(urls)
-
-    print "- Building directory structure for %s." % profile
-    result = re.match(r'/u/(\d+)/.+$', profile)
-    profile_id = result.group(1)
-    directory = 'data/%s/%s/%s/%s' % (profile_id[0], profile_id[0:2], profile_id[0:3], profile_id)
-    print '  - %s' % directory
-    os.makedirs(directory, 0755)
-
-    print '- Writing URLs for %s.' % profile
-
-    with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
-        for url in urls:
-            url_file.write(url + '\n')
-
-    print '- Retrieving %s.' % profile
-    subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
-
-    print '- Telling tracker that %s is done.' % profile
-    bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
-    data = '{"downloader":"%s","item":"%s","bytes":{"all":%d},"version":"%s"}' % (username, profile, bytes, VERSION)
-    conn.request("POST", "/done", data)
+while True:
+    # Get a profile.
+    # 
+    # POST /request => [200, item] | [404, nothing] | [420, nothing]
+    print "- Requesting work item."
+    conn.request("POST", "/request", '{"downloader":"%s"}' % username)
     response = conn.getresponse()
+    profile = response.read()
 
-    print '  - %s' % data
+    if response.status == 404:
+        print "  - Tracker returned 404; assuming todo queue is empty.  Exiting."
+        sys.exit
+
+    if response.status == 420:
+        print "  - Tracker is rate-limiting requests; will retry in 30 seconds."
+        time.sleep(30)
+        continue
+
+    if response.status >= 500:
+        print "  - Tracker returned an error; will retry in 30 seconds."
+        time.sleep(30)
+        continue
+
+    if len(profile) == 0:
+        print "  - Tracker returned an empty work item; will retry in 30 seconds."
+        time.sleep(30)
+        continue
+
+    # If we got a profile path of non-zero length, fetch it.
     if response.status == 200:
-        print '- Tracker acknowledged %s.' % profile
-    else:
-        print '- Tracker error (status: %d).' % response.status
-        sys.exit(1)
+        print "  - Received profile %s." % profile
+        print "- Generating URLs for profile %s." % profile
+        urls = urls_for(profile)
+        print "  - %d URLs to fetch." % len(urls)
+
+        print "- Building directory structure for %s." % profile
+        result = re.match(r'/u/(\d+)/.+$', profile)
+        profile_id = result.group(1)
+        directory = 'data/%s/%s/%s/%s' % (profile_id[0], profile_id[0:2], profile_id[0:3], profile_id)
+        print '  - %s' % directory
+        os.makedirs(directory, 0755)
+
+        print '- Writing URLs for %s.' % profile
+
+        with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
+            for url in urls:
+                url_file.write(url + '\n')
+
+        print '- Retrieving %s.' % profile
+        subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
+
+        print '- Telling tracker that %s is done.' % profile
+        bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
+        data = '{"downloader":"%s","item":"%s","bytes":{"warcgz":%d},"version":"%s"}' % (username, profile, bytes, VERSION)
+        conn.request("POST", "/done", data)
+        response = conn.getresponse()
+        body = response.read()
+
+        print '  - %s' % data
+        if response.status == 200:
+            print '- Tracker acknowledged %s.' % profile
+        else:
+            print '- Tracker error (status: %d, body: %s).' % (response.status, body)
+            sys.exit(1)
 
 # vim:ts=4:sw=4:et
