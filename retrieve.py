@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 from BeautifulSoup import BeautifulSoup
-import requests
-import math
 import json
+import math
 import os
 import re
+import requests
 import string
 import subprocess
 import sys
