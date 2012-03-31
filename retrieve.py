@@ -153,8 +153,6 @@ base_url = "http://fujoshi.at.ninjawedding.org"
 stop_threshold = time.time()
 
 if len(sys.argv) >= 3:
-    profiles = sys.argv[2::]
-
     for profile in sys.argv[2::]:
         ok = archive(profile)
 
