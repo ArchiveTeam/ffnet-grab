@@ -94,7 +94,7 @@ def urls_for(profile):
 
     return ["http://www.fanfiction.net%s" % path for path in paths]
 
-# ------------------------------------------------------------------------------ 
+# ------------------------------------------------------------------------------
 
 if len(sys.argv) < 2:
     print "Usage: %s YOUR_USERNAME" % sys.argv[0]
@@ -111,7 +111,7 @@ while True:
         sys.exit()
 
     # Get a profile.
-    # 
+    #
     # POST /request => [200, item] | [404, nothing] | [420, nothing]
     print "- Requesting work item."
     response = requests.post(base_url + "/request", json.dumps({'downloader': username}))
