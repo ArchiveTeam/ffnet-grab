@@ -6,6 +6,7 @@ import math
 import os
 import re
 import requests
+import shutil
 import string
 import subprocess
 import sys
@@ -94,88 +95,110 @@ def urls_for(profile):
 
     return ["http://www.fanfiction.net%s" % path for path in paths]
 
+def archive(profile):
+    print "- Downloading profile %s." % profile
+    print "- Generating URLs for profile %s." % profile
+    urls = urls_for(profile)
+    print "  - %d URLs to fetch." % len(urls)
+
+    print "- Building directory structure for %s." % profile
+    result = re.match(r'/u/(\d+)/.+$', profile)
+    profile_id = result.group(1)
+    directory = 'data/%s/%s/%s/%s' % (profile_id[0], profile_id[0:2], profile_id[0:3], profile_id)
+    print '  - %s' % directory
+
+    print "- Ensuring %s is empty." % directory
+    shutil.rmtree(directory, ignore_errors=True)
+    os.makedirs(directory, 0755)
+
+
+    print '- Writing URLs for %s.' % profile
+    with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
+        for url in urls:
+            url_file.write(url + '\n')
+
+    print '- Retrieving %s.' % profile
+    subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
+
+    print '- Telling tracker that %s is done.' % profile
+    bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
+
+    data = {'downloader': username,
+            'item': profile,
+            'bytes': {
+                'warcgz': bytes
+             },
+            'version': VERSION}
+
+    response = requests.post(base_url + "/done", json.dumps(data))
+
+    print '  - %s' % data
+    if response.status_code == 200:
+        print '- Tracker acknowledged %s.' % profile
+        return True
+    else:
+        print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
+        return False
+
 # ------------------------------------------------------------------------------
 
 if len(sys.argv) < 2:
-    print "Usage: %s YOUR_USERNAME" % sys.argv[0]
+    print "Usage: %s YOUR_USERNAME [PROFILE PROFILE...]" % sys.argv[0]
+    print "If PROFILEs are given, only the given PROFILEs will be retrieved."
+    print "Each PROFILE should be a string like /u/1234567/username."
     sys.exit(1)
 
 username = sys.argv[1]
 base_url = "http://fujoshi.at.ninjawedding.org"
 stop_threshold = time.time()
 
-while True:
-    # Should we shut down?
-    if os.path.isfile('STOP') and os.stat('STOP').st_mtime > stop_threshold:
-        print "- STOP detected; terminating."
-        sys.exit()
+if len(sys.argv) >= 3:
+    profiles = sys.argv[2::]
 
-    # Get a profile.
-    #
-    # POST /request => [200, item] | [404, nothing] | [420, nothing]
-    print "- Requesting work item."
-    response = requests.post(base_url + "/request", json.dumps({'downloader': username}))
-    profile = response.text
+    for profile in sys.argv[2::]:
+        ok = archive(profile)
 
-    if response.status_code == 404:
-        print "  - Tracker returned 404; assuming todo queue is empty.  Exiting."
-        sys.exit()
-
-    if response.status_code == 420:
-        print "  - Tracker is rate-limiting requests; will retry in 30 seconds."
-        time.sleep(30)
-        continue
-
-    if response.status_code >= 500:
-        print "  - Tracker returned an error; will retry in 30 seconds."
-        time.sleep(30)
-        continue
-
-    if len(profile) == 0:
-        print "  - Tracker returned an empty work item; will retry in 30 seconds."
-        time.sleep(30)
-        continue
-
-    # If we got a profile path of non-zero length, fetch it.
-    if response.status_code == 200:
-        print "  - Received profile %s." % profile
-        print "- Generating URLs for profile %s." % profile
-        urls = urls_for(profile)
-        print "  - %d URLs to fetch." % len(urls)
-
-        print "- Building directory structure for %s." % profile
-        result = re.match(r'/u/(\d+)/.+$', profile)
-        profile_id = result.group(1)
-        directory = 'data/%s/%s/%s/%s' % (profile_id[0], profile_id[0:2], profile_id[0:3], profile_id)
-        print '  - %s' % directory
-        os.makedirs(directory, 0755)
-
-        print '- Writing URLs for %s.' % profile
-
-        with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
-            for url in urls:
-                url_file.write(url + '\n')
-
-        print '- Retrieving %s.' % profile
-        subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
-
-        print '- Telling tracker that %s is done.' % profile
-        bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
-
-        data = {'downloader': username,
-                'item': profile,
-                'bytes': {
-                    'warcgz': bytes
-                 },
-                'version': VERSION}
-
-        response = requests.post(base_url + "/done", json.dumps(data))
-
-        print '  - %s' % data
-        if response.status_code == 200:
-            print '- Tracker acknowledged %s.' % profile
-        else:
-            print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
+        if not ok:
             sys.exit(1)
+
+else:
+    while True:
+        # Should we shut down?
+        if os.path.isfile('STOP') and os.stat('STOP').st_mtime > stop_threshold:
+            print "- STOP detected; terminating."
+            sys.exit()
+
+        # Get a profile.
+        #
+        # POST /request => [200, item] | [404, nothing] | [420, nothing]
+        print "- Requesting work item."
+        response = requests.post(base_url + "/request", json.dumps({'downloader': username}))
+        profile = response.text
+
+        if response.status_code == 404:
+            print "  - Tracker returned 404; assuming todo queue is empty.  Exiting."
+            sys.exit()
+
+        if response.status_code == 420:
+            print "  - Tracker is rate-limiting requests; will retry in 30 seconds."
+            time.sleep(30)
+            continue
+
+        if response.status_code >= 500:
+            print "  - Tracker returned an error; will retry in 30 seconds."
+            time.sleep(30)
+            continue
+
+        if len(profile) == 0:
+            print "  - Tracker returned an empty work item; will retry in 30 seconds."
+            time.sleep(30)
+            continue
+
+        # If we got a profile path of non-zero length, fetch it.
+        if response.status_code == 200:
+            ok = archive(profile)
+
+            if not ok:
+                sys.exit(1)
 
 # vim:ts=4:sw=4:et
