@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 from BeautifulSoup import BeautifulSoup
-import httplib
+import requests
 import math
+import json
 import os
 import re
 import string
@@ -19,11 +20,12 @@ def urls_for(profile):
         a. Generate URLs to each page in the story.
         b. Generate review URLs.
     """
-   
-    conn = httplib.HTTPConnection('www.fanfiction.net')
-    conn.request("GET", profile)
-    response = conn.getresponse()
-    doc = BeautifulSoup(response.read())
+
+    response = requests.get("http://www.fanfiction.net/%s" % profile)
+
+    assert response.status_code == 200
+
+    doc = BeautifulSoup(response.text)
 
     # The author's stories.
     story_tab = doc.find(id="st")
@@ -99,8 +101,7 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 username = sys.argv[1]
-tracker = "fujoshi.at.ninjawedding.org"
-conn = httplib.HTTPConnection(tracker)
+base_url = "http://fujoshi.at.ninjawedding.org"
 stop_threshold = time.time()
 
 while True:
@@ -113,20 +114,19 @@ while True:
     # 
     # POST /request => [200, item] | [404, nothing] | [420, nothing]
     print "- Requesting work item."
-    conn.request("POST", "/request", '{"downloader":"%s"}' % username)
-    response = conn.getresponse()
-    profile = response.read()
+    response = requests.post(base_url + "/request", json.dumps({'downloader': username}))
+    profile = response.text
 
-    if response.status == 404:
+    if response.status_code == 404:
         print "  - Tracker returned 404; assuming todo queue is empty.  Exiting."
         sys.exit()
 
-    if response.status == 420:
+    if response.status_code == 420:
         print "  - Tracker is rate-limiting requests; will retry in 30 seconds."
         time.sleep(30)
         continue
 
-    if response.status >= 500:
+    if response.status_code >= 500:
         print "  - Tracker returned an error; will retry in 30 seconds."
         time.sleep(30)
         continue
@@ -137,7 +137,7 @@ while True:
         continue
 
     # If we got a profile path of non-zero length, fetch it.
-    if response.status == 200:
+    if response.status_code == 200:
         print "  - Received profile %s." % profile
         print "- Generating URLs for profile %s." % profile
         urls = urls_for(profile)
@@ -161,16 +161,21 @@ while True:
 
         print '- Telling tracker that %s is done.' % profile
         bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
-        data = '{"downloader":"%s","item":"%s","bytes":{"warcgz":%d},"version":"%s"}' % (username, profile, bytes, VERSION)
-        conn.request("POST", "/done", data)
-        response = conn.getresponse()
-        body = response.read()
+
+        data = {'downloader': username,
+                'item': profile,
+                'bytes': {
+                    'warcgz': bytes
+                 },
+                'version': VERSION}
+
+        response = requests.post(base_url + "/done", json.dumps(data))
 
         print '  - %s' % data
-        if response.status == 200:
+        if response.status_code == 200:
             print '- Tracker acknowledged %s.' % profile
         else:
-            print '- Tracker error (status: %d, body: %s).' % (response.status, body)
+            print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
             sys.exit(1)
 
 # vim:ts=4:sw=4:et
