@@ -12,7 +12,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '20120331.01'
+VERSION = '20120402.01'
 
 def urls_for(profile):
     """
@@ -105,12 +105,15 @@ def archive(profile):
     result = re.match(r'/u/(\d+)/.+$', profile)
     profile_id = result.group(1)
     directory = 'data/%s/%s/%s/%s' % (profile_id[0], profile_id[0:2], profile_id[0:3], profile_id)
+    incomplete = directory + '/.incomplete'
+
     print '  - %s' % directory
 
     print "- Ensuring %s is empty." % directory
     shutil.rmtree(directory, ignore_errors=True)
     os.makedirs(directory, 0755)
 
+    file(incomplete, 'a')
 
     print '- Writing URLs for %s.' % profile
     with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
@@ -135,6 +138,9 @@ def archive(profile):
     print '  - %s' % data
     if response.status_code == 200:
         print '- Tracker acknowledged %s.' % profile
+
+        os.remove(incomplete)
+
         return True
     else:
         print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
