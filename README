@@ -4,7 +4,7 @@ USAGE
 Run in a loop, checking out work items
 --------------------------------------
 
-    ./retrieve_py YOUR_USERNAME
+    ./retrieve.py YOUR_USERNAME
 
 Patch up failed downloads
 -------------------------
