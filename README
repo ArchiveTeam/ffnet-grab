@@ -1,3 +1,23 @@
+PREREQUISITES
+=============
+
+Python 2.6+ with the pkg_resources module.
+
+To check if you're good to go, run this:
+
+    python -mpkg_resources
+
+If Python exits without an error, you're good.  However, if you get something like
+
+    ImportError: No module named pkg_resources
+
+then you may need to install the setuptools package.  Here are some methods for 
+doing that:
+
+    apt-get install python2-setuptools
+    pip install setuptools
+
+
 USAGE
 =====
 
@@ -5,6 +25,7 @@ Run in a loop, checking out work items
 --------------------------------------
 
     ./retrieve.py YOUR_USERNAME
+
 
 Patch up failed downloads
 -------------------------
