@@ -178,6 +178,10 @@ if len(sys.argv) < 2:
     print "Each PROFILE should be a string like /u/1234567/username."
     sys.exit(1)
 
+if os.path.isfile('wget-warc') == False:
+    print "wget-warc not found."
+    sys.exit(1)
+
 username = sys.argv[1]
 base_url = "http://fujoshi.at.ninjawedding.org"
 upload_to = "fos.textfiles.com::fanfiction"
