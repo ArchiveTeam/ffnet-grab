@@ -102,9 +102,11 @@ def archive(profile):
     print "  - %d URLs to fetch." % len(urls)
 
     print "- Building directory structure for %s." % profile
-    result = re.match(r'/u/(\d+)/.+$', profile)
+    result = re.match(r'/u/(\d+)/(.+)$', profile)
     profile_id = result.group(1)
-    directory = 'data/%s/%s/%s/%s' % (profile_id[0], profile_id[0:2], profile_id[0:3], profile_id)
+    profile_name = result.group(2)
+
+    directory = 'data/%s/%s/%s/%s%s' % (username, profile_id[0:1], profile_id[0:2], profile_id[0:3], profile)
     incomplete = directory + '/.incomplete'
 
     print '  - %s' % directory
@@ -123,7 +125,7 @@ def archive(profile):
     print '- Retrieving %s.' % profile
     subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
 
-    print '- Telling tracker that %s is done.' % profile
+    print '- Telling tracker that %s has been downloaded.' % profile
     bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
 
     data = {'downloader': username,
@@ -137,11 +139,33 @@ def archive(profile):
 
     print '  - %s' % data
     if response.status_code == 200:
-        print '- Tracker acknowledged %s.' % profile
+        print '- Tracker acknowledged download of %s.' % profile
 
         os.remove(incomplete)
 
-        return True
+        print '- Uploading %s to %s.' % (profile, upload_to)
+        
+        subprocess.check_call('./upload.sh %s %s' % (directory, upload_to), shell=True)
+
+        print '- Telling tracker that %s has been uploaded.' % profile
+
+        data = {'uploader': username,
+                'item': profile,
+                'server': upload_to
+               }
+
+        response = requests.post(base_url + "/uploaded", json.dumps(data))
+
+        if response.status_code == 200:
+            print '- Tracker acknowledged upload of %s.' % profile
+            print '- Removing local copy of %s.' % profile
+
+            shutil.rmtree(directory, ignore_errors=True)
+
+            return True
+        else:
+            print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
+            return False
     else:
         print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
         return False
@@ -156,6 +180,8 @@ if len(sys.argv) < 2:
 
 username = sys.argv[1]
 base_url = "http://fujoshi.at.ninjawedding.org"
+upload_to = "fos.textfiles.com::fanfiction"
+
 stop_threshold = time.time()
 
 if len(sys.argv) >= 3:
