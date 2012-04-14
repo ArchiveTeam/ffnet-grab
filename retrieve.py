@@ -12,7 +12,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '20120402.01'
+VERSION = '20120414.01'
 
 def urls_for(profile):
     """
@@ -30,6 +30,11 @@ def urls_for(profile):
 
     # The author's stories.
     story_tab = doc.find(id="st")
+
+    if story_tab == None:
+        print "- !! No story tab found; user might be inactive"
+        return None
+
     links = story_tab.findAllNext('a')
 
     # We're only interested in links whose href =~ /s/\d+.
@@ -95,80 +100,102 @@ def urls_for(profile):
 
     return ["http://www.fanfiction.net%s" % path for path in paths]
 
+def ack(endpoint, data):
+    print "  - %s" % data
+
+    response = requests.post(base_url + endpoint, json.dumps(data))
+
+    if response.status_code == 200:
+        print "- POST %s acknowledged." % endpoint
+        return True
+    else:
+        print "- POST %s failed (status code %d, text %s)." % (endpoint, response.status_code, response.text)
+        return False
+
 def archive(profile):
     print "- Downloading profile %s." % profile
     print "- Generating URLs for profile %s." % profile
     urls = urls_for(profile)
-    print "  - %d URLs to fetch." % len(urls)
 
-    print "- Building directory structure for %s." % profile
-    result = re.match(r'/u/(\d+)/(.+)$', profile)
-    profile_id = result.group(1)
-    profile_name = result.group(2)
+    if urls == None:
+        print "  - No URLs returned; reporting profile as undownloadable."
 
-    directory = 'data/%s/%s/%s/%s%s' % (username, profile_id[0:1], profile_id[0:2], profile_id[0:3], profile)
-    incomplete = directory + '/.incomplete'
-
-    print '  - %s' % directory
-
-    print "- Ensuring %s is empty." % directory
-    shutil.rmtree(directory, ignore_errors=True)
-    os.makedirs(directory, 0755)
-
-    file(incomplete, 'a')
-
-    print '- Writing URLs for %s.' % profile
-    with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
-        for url in urls:
-            url_file.write(url + '\n')
-
-    print '- Retrieving %s.' % profile
-    subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
-
-    print '- Telling tracker that %s has been downloaded.' % profile
-    bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
-
-    data = {'downloader': username,
-            'item': profile,
-            'bytes': {
-                'warcgz': bytes
-             },
-            'version': VERSION}
-
-    response = requests.post(base_url + "/done", json.dumps(data))
-
-    print '  - %s' % data
-    if response.status_code == 200:
-        print '- Tracker acknowledged download of %s.' % profile
-
-        os.remove(incomplete)
-
-        print '- Uploading %s to %s.' % (profile, upload_to)
-        
-        subprocess.check_call('./upload.sh %s %s' % (directory, upload_to), shell=True)
-
-        print '- Telling tracker that %s has been uploaded.' % profile
-
-        data = {'uploader': username,
+        data = {'downloader': username,
                 'item': profile,
-                'server': upload_to
-               }
+                'bytes': {
+                    'warcgz': 0
+                 },
+                'id': "undownloadable-%s" % profile,
+                'version': VERSION}
 
-        response = requests.post(base_url + "/uploaded", json.dumps(data))
+        return ack("/done", data)
 
-        if response.status_code == 200:
-            print '- Tracker acknowledged upload of %s.' % profile
-            print '- Removing local copy of %s.' % profile
-
-            shutil.rmtree(directory, ignore_errors=True)
-
-            return True
-        else:
-            print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
-            return False
     else:
-        print '- Tracker error (status: %d, body: %s).' % (response.status_code, response.text)
-        return False
+        print "  - %d URLs to fetch." % len(urls)
+
+        print "- Building directory structure for %s." % profile
+        result = re.match(r'/u/(\d+)/(.+)$', profile)
+        profile_id = result.group(1)
+        profile_name = result.group(2)
+
+        directory = 'data/%s/%s/%s/%s%s' % (username, profile_id[0:1], profile_id[0:2], profile_id[0:3], profile)
+        incomplete = directory + '/.incomplete'
+
+        print '  - %s' % directory
+
+        print "- Ensuring %s is empty." % directory
+        shutil.rmtree(directory, ignore_errors=True)
+        os.makedirs(directory, 0755)
+
+        file(incomplete, 'a')
+
+        print '- Writing URLs for %s.' % profile
+        with open('%s/%s.txt' % (directory, profile_id), 'w') as url_file:
+            for url in urls:
+                url_file.write(url + '\n')
+
+        print '- Retrieving %s.' % profile
+        subprocess.check_call('./get_one.sh %s %s %s %s' % (profile_id, directory, username, VERSION), shell=True)
+
+        print '- Telling tracker that %s has been downloaded.' % profile
+        bytes = os.stat('%s/%s.warc.gz' % (directory, profile_id)).st_size
+
+        data = {'downloader': username,
+                'item': profile,
+                'bytes': {
+                    'warcgz': bytes
+                 },
+                'version': VERSION}
+
+        if ack("/done", data):
+            print '- Tracker acknowledged download of %s.' % profile
+
+            os.remove(incomplete)
+
+            print '- Uploading %s to %s.' % (profile, upload_to)
+
+            subprocess.check_call('./upload.sh %s %s' % (directory, upload_to), shell=True)
+
+            print '- Telling tracker that %s has been uploaded.' % profile
+
+            data = {'uploader': username,
+                    'item': profile,
+                    'server': upload_to
+                   }
+
+            if ack("/uploaded", data):
+                print '- Tracker acknowledged upload of %s.' % profile
+                print '- Removing local copy of %s.' % profile
+
+                shutil.rmtree(directory, ignore_errors=True)
+
+                return True
+            else:
+                print '- Tracker error.'
+                return False
+        else:
+            print '- Tracker error.'
+            return False
 
 # ------------------------------------------------------------------------------
 
