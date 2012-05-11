@@ -42,9 +42,12 @@ def urls_for(profile):
 
     stories = []
     for l in links:
-        result = sl_re.match(l['href'])
-        if result:
-            stories.append((l, result.group(1)))
+        # Yes: sadly, some links on fanfiction.net are malformed and don't
+        # have hrefs.
+        if 'href' in l:
+            result = sl_re.match(l['href'])
+            if result:
+                stories.append((l, result.group(1)))
 
     chapters = dict()
     reviews = dict()
